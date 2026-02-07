@@ -41,7 +41,7 @@ function pickToolIcon(title: string, rawToolName?: string) {
 
 export function RightPanel({ analysis, runAdjudication, isAnalyzing, events = [] }: RightPanelProps) {
     const hasAnything = (events?.length ?? 0) > 0 || !!analysis || !!isAnalyzing;
-    
+
     // 1. Create a reference for the bottom of the list
     const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -166,8 +166,8 @@ export function RightPanel({ analysis, runAdjudication, isAnalyzing, events = []
                         )}
                     </div>
                 </ScrollArea>
-
-              {/* Action Buttons */}
+            </div>
+            {/* Action Buttons */}
                     <div className="flex-shrink-0 border-t border-slate-200 bg-white p-3 relative z-30">
                         <div className="flex gap-2">
                             <button
@@ -214,7 +214,6 @@ export function RightPanel({ analysis, runAdjudication, isAnalyzing, events = []
                             </button>
                         </div>
                     </div>
-            </div>
         </div>
     );
 }
