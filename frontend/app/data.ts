@@ -35,7 +35,7 @@ export interface SummaryCardData {
     full_name: string;
     initials: string;
     date: string;
-    status: "Positive" | "Negative";
+    status: "YES" | "NO";
     match_score: string | number;
     description: string;
     articles?: Article[];

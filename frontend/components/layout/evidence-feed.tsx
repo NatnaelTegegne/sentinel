@@ -2,7 +2,7 @@ import { Article, SummaryCardData } from "@/app/data";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/libf/utils";
-import { ExternalLink, CheckCircle2, AlertTriangle, XCircle, Search } from "lucide-react";
+import { ExternalLink, CheckCircle2, AlertTriangle, XCircle, Search, AlertCircle, Circle } from "lucide-react";
 
 interface EvidenceFeedProps {
     articles: Article[];
@@ -41,12 +41,12 @@ export function EvidenceFeed({ articles, summaryData }: EvidenceFeedProps) {
 }
 
 function SummaryCard({ data }: { data: SummaryCardData }) {
-    const isPositive = data.status === "Positive";
+    const isAdverse = data.status === "YES";
 
     return (
         <Card className={cn(
             "border shadow-sm overflow-hidden",
-            isPositive ? "border-red-200 bg-red-50/30" : "border-emerald-200 bg-emerald-50/30"
+            isAdverse ? "border-red-200 bg-red-50/30" : "border-emerald-200 bg-emerald-50/30"
         )}>
             <div className="p-5 flex flex-col gap-4">
                 {/* Header Row */}
@@ -54,7 +54,7 @@ function SummaryCard({ data }: { data: SummaryCardData }) {
                     <div className="flex items-center gap-3">
                         <div className={cn(
                             "h-10 w-10 rounded-full flex items-center justify-center border",
-                            isPositive ? "bg-red-100 text-red-600 border-red-200" : "bg-emerald-100 text-emerald-600 border-emerald-200"
+                            isAdverse ? "bg-red-100 text-red-600 border-red-200" : "bg-emerald-100 text-emerald-600 border-emerald-200"
                         )}>
                             <span className="text-sm font-bold">{data.initials}</span>
                         </div>
@@ -65,9 +65,9 @@ function SummaryCard({ data }: { data: SummaryCardData }) {
                     </div>
                     <Badge className={cn(
                         "px-3 py-1 text-xs font-semibold uppercase tracking-wide border",
-                        isPositive ? "bg-red-100 text-red-700 border-red-200 hover:bg-red-200" : "bg-emerald-100 text-emerald-700 border-emerald-200 hover:bg-emerald-200"
+                        isAdverse ? "bg-red-100 text-red-700 border-red-200 hover:bg-red-200" : "bg-emerald-100 text-emerald-700 border-emerald-200 hover:bg-emerald-200"
                     )}>
-                        {data.status === "Positive" ? "Escalate" : "False Positive"}
+                        {data.status === "YES" ? "Escalate" : "No Adverse Media Found!"}
                     </Badge>
                 </div>
 
@@ -83,7 +83,7 @@ function SummaryCard({ data }: { data: SummaryCardData }) {
                         <div className="flex items-baseline gap-1">
                             <span className={cn(
                                 "text-xl font-bold",
-                                isPositive ? "text-red-600" : "text-emerald-600"
+                                isAdverse ? "text-red-600" : "text-emerald-600"
                             )}>{data.match_score}</span>
                             <span className="text-xs text-slate-400">/ 100</span>
                         </div>
@@ -91,7 +91,7 @@ function SummaryCard({ data }: { data: SummaryCardData }) {
                     <div className="flex flex-col">
                         <span className="text-[10px] uppercase tracking-wider text-slate-400 font-semibold">Status</span>
                         <div className="flex items-center gap-1.5 mt-0.5">
-                            {isPositive ? (
+                            {isAdverse ? (
                                 <AlertTriangle size={14} className="text-red-500" />
                             ) : (
                                 <CheckCircle2 size={14} className="text-emerald-500" />
@@ -145,17 +145,28 @@ function ArticleCard({ article }: { article: Article }) {
                             <span className="text-sm font-bold text-slate-900">{article.source}</span>
                             <span className="text-xs text-slate-400">• {article.date}</span>
                         </div>
-                        <div className="flex items-center gap-2 mt-0.5">
-                            <Badge variant="outline" className={cn(
-                                "text-[10px] px-1.5 h-4 border",
-                                article.sentiment === "Negative" ? "bg-red-50 text-red-700 border-red-200" :
-                                    article.sentiment === "Positive" ? "bg-emerald-50 text-emerald-700 border-emerald-200" :
-                                        "bg-slate-50 text-slate-600 border-slate-200"
+                        
+                        <div className="flex items-center gap-2 mt-1">
+                            {/* --- ENHANCED SENTIMENT BADGE --- */}
+                            <div className={cn(
+                                "flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase border tracking-wider",
+                                article.sentiment === "Negative" 
+                                    ? "bg-red-50 text-red-700 border-red-200" 
+                                    : article.sentiment === "Positive" 
+                                        ? "bg-emerald-50 text-emerald-700 border-emerald-200" 
+                                        : "bg-slate-100 text-slate-600 border-slate-300" // Neutral state
                             )}>
-                                {article.sentiment}
-                            </Badge>
+                                {article.sentiment === "Negative" && <AlertCircle size={10} strokeWidth={3} className="animate-pulse" />}
+                                {article.sentiment === "Positive" && <CheckCircle2 size={10} strokeWidth={3} />}
+                                {(article.sentiment === "Neutral" || !["Negative", "Positive"].includes(article.sentiment)) && 
+                                    <Circle size={8} fill="currentColor" className="text-slate-400" />
+                                }
+                                <span>{article.sentiment || "Neutral"}</span>
+                            </div>
+                            {/* --------------------------------- */}
+
                             <span className="text-[10px] text-slate-400">
-                                Match Score: <span className={cn(
+                                Relevance: <span className={cn(
                                     "font-medium",
                                     article.relevanceScore > 80 ? "text-slate-900" : "text-slate-500"
                                 )}>{article.relevanceScore}%</span>
