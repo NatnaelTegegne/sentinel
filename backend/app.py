@@ -1,6 +1,10 @@
 # app.py
 import os 
 from dotenv import load_dotenv
+import json, time
+from fastapi.responses import StreamingResponse
+from fastapi.encoders import jsonable_encoder
+
 
 load_dotenv() 
 import asyncio
@@ -211,49 +215,67 @@ async def get_single_customer(customer_id: str):
         if resp.status_code == 200:
             return parse_customer_data(resp.json())
         return {"error": "Customer not found"}
+    
+def sse(event_type: str, data: dict) -> str:
+    return f"event: {event_type}\n" + "data: " + json.dumps(data, ensure_ascii=False) + "\n\n"
 
-# 3. Stream Agent Adjudication
 @app.get("/adjudicate/{customer_id}")
 async def adjudicate_customer(customer_id: str):
-    """
-    Runs the Dedalus Agent for a specific customer and streams the reasoning 
-    and final verdict back to the client token-by-token.
-
-    """
     async def event_generator():
         client = AsyncDedalus()
         runner = DedalusRunner(client, verbose=False)
-        
-        # Initial instruction with the specific ID
-        initial_input = f"Investigate Customer ID: {customer_id}"
 
-        # Create the stream generator
         stream = runner.run(
             instructions=SYSTEM_PROMPT,
-            messages=[{"role": "user", "content": initial_input}],
+            messages=[{"role": "user", "content": f"Investigate Customer ID: {customer_id}"}],
             mcp_servers=MCP_SERVERS,
             model=MODEL_ID,
-            tools=[get_customer_profile], # Pass the python tool directly
+            tools=[get_customer_profile],
             max_steps=10,
-            stream=True, 
+            stream=True,
         )
 
-        # Iterate through the stream events and yield them to the HTTP client
-        async for event in stream:
-            # Check if the event has content to stream (it might be a chunk object)
-            content = None
-            
-            # Try to extract content from various locations in the object structure
-            if hasattr(event, "choices") and event.choices:
-                delta = event.choices[0].delta
-                if hasattr(delta, "content") and delta.content:
-                    content = delta.content
-            
-            # Yield if we found text content
-            if content:
-                yield content
+        yield sse("run_started", {"customer_id": customer_id, "ts": time.time()})
 
-    return StreamingResponse(event_generator(), media_type="text/event-stream")
+        seen_tool_call_ids = set()
+
+        async for event in stream:
+            # normalize event
+            try:
+                evt = event.model_dump()
+            except Exception:
+                evt = jsonable_encoder(event)
+
+            if isinstance(evt, dict) and evt.get("choices"):
+                delta = (evt["choices"][0].get("delta") or {})
+
+                # 1) text
+                content = delta.get("content")
+                if content:
+                    yield sse("token", {"delta": content})
+
+                # 2) tool calls (dedupe by tool_call.id)
+                tool_calls = delta.get("tool_calls") or []
+                for tc in tool_calls:
+                    tc_id = tc.get("id")
+                    fn = (tc.get("function") or {})
+                    name = fn.get("name")
+
+                    if tc_id and tc_id not in seen_tool_call_ids:
+                        seen_tool_call_ids.add(tc_id)
+                        yield sse("tool_call_started", {
+                            "id": tc_id,
+                            "tool": name,
+                            "ts": time.time(),
+                        })
+
+        yield sse("run_finished", {"customer_id": customer_id, "ts": time.time()})
+
+    return StreamingResponse(
+        event_generator(),
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+    )
 
 # if __name__ == "__main__":
 #     # Test run

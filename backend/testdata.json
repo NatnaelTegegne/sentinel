@@ -1,0 +1,152 @@
+[
+    {
+        "_id": "CUST-001",
+        "first_name": "David",
+        "last_name": "Hines",
+        "age": 68,
+        "occupation": "Retired High School Teacher",
+        "zip": "98101",
+        "address": {
+            "street_number": "450",
+            "street_name": "Pine Street",
+            "city": "Seattle",
+            "state": "WA"
+        },
+        "test_category": "False Positive - Name Match Only (Real criminal is in Miami)"
+    },
+    {
+        "_id": "CUST-002",
+        "first_name": "Viktor",
+        "last_name": "Bout",
+        "age": 57,
+        "occupation": "Logistics Consultant",
+        "zip": "10001",
+        "address": {
+            "street_number": "12",
+            "street_name": "Embassy Row",
+            "city": "New York",
+            "state": "NY"
+        },
+        "test_category": "True Positive - Sanctions/Arms Trafficking"
+    },
+    {
+        "_id": "CUST-003",
+        "first_name": "Elizabeth",
+        "last_name": "Holmes",
+        "age": 40,
+        "occupation": "Biotech Entrepreneur",
+        "zip": "94062",
+        "address": {
+            "street_number": "325",
+            "street_name": "Channing Avenue",
+            "city": "Woodside",
+            "state": "CA"
+        },
+        "test_category": "True Positive - Fraud/Prison"
+    },
+    {
+        "_id": "CUST-004",
+        "first_name": "George",
+        "last_name": "Santos",
+        "age": 21,
+        "occupation": "Undergraduate Student",
+        "zip": "78705",
+        "address": {
+            "street_number": "2300",
+            "street_name": "Guadalupe St",
+            "city": "Austin",
+            "state": "TX"
+        },
+        "test_category": "False Positive - Identity Mismatch (Age/Role)"
+    },
+    {
+        "_id": "CUST-005",
+        "first_name": "Sam",
+        "last_name": "Bankman-Fried",
+        "age": 32,
+        "occupation": "Crypto Trader",
+        "zip": "94305",
+        "address": {
+            "street_number": "550",
+            "street_name": "Campus Drive",
+            "city": "Stanford",
+            "state": "CA"
+        },
+        "test_category": "True Positive - Money Laundering/Fraud"
+    },
+    {
+        "_id": "CUST-006",
+        "first_name": "Michael",
+        "last_name": "Cohen",
+        "age": 52,
+        "occupation": "Orthodontist",
+        "zip": "60611",
+        "address": {
+            "street_number": "800",
+            "street_name": "Michigan Ave",
+            "city": "Chicago",
+            "state": "IL"
+        },
+        "test_category": "False Positive - Common Name (Not the Lawyer)"
+    },
+    {
+        "_id": "CUST-007",
+        "first_name": "Anna",
+        "last_name": "Sorokin",
+        "age": 33,
+        "occupation": "Art Foundation Director",
+        "zip": "10013",
+        "address": {
+            "street_number": "11",
+            "street_name": "Howard Street",
+            "city": "New York",
+            "state": "NY"
+        },
+        "test_category": "True Positive - Identity Theft/Larceny"
+    },
+    {
+        "_id": "CUST-008",
+        "first_name": "Carlos",
+        "last_name": "Ghosn",
+        "age": 70,
+        "occupation": "Logistics Manager",
+        "zip": "00000",
+        "address": {
+            "street_number": "10",
+            "street_name": "Achrafieh Street",
+            "city": "Beirut",
+            "state": "LB"
+        },
+        "test_category": "Review Needed - High Risk Geography Match"
+    },
+    {
+        "_id": "CUST-009",
+        "first_name": "Satya",
+        "last_name": "Nadella",
+        "age": 56,
+        "occupation": "Technology Executive",
+        "zip": "98052",
+        "address": {
+            "street_number": "1",
+            "street_name": "Microsoft Way",
+            "city": "Redmond",
+            "state": "WA"
+        },
+        "test_category": "Clear - Famous but Positive Media"
+    },
+    {
+        "_id": "CUST-010",
+        "first_name": "Low",
+        "last_name": "Taek Jho",
+        "age": 42,
+        "occupation": "Private Equity Investor",
+        "zip": "00000",
+        "address": {
+            "street_number": "88",
+            "street_name": "Gold Coast Road",
+            "city": "George Town",
+            "state": "MY"
+        },
+        "test_category": "True Positive - International Fugitive"
+    }
+]
