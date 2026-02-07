@@ -106,9 +106,8 @@ async def run_dedalus_agent(initial_input: str):
 app = FastAPI(title="Compliance Adjudication API")
 
 origins = [
-    "*", # Allow all origins for hackathon/demo purposes
-    "http://localhost:3000",
-    "http://localhost:8000",
+    "https://sentinel-gva5.onrender.com/*",
+    "https://sentinel-gva5.onrender.com",
 ]
 
 app.add_middleware(
