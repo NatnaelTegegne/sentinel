@@ -21,7 +21,7 @@ export default function Home() {
   const summaryCardData = currentResult?.summary || null;
   const isAnalyzing = analyzingIds.has(selectedUser);
 
-  const [selectedCustomerIds, setSelectedCustomerIds] = useState<Set<string>>(new Set());
+
 
   useEffect(() => {
     fetch(`${API_URL}/customers`)
@@ -43,23 +43,7 @@ export default function Home() {
       });
   }, []);
 
-  const toggleCustomerSelection = (id: string) => {
-    const newSet = new Set(selectedCustomerIds);
-    if (newSet.has(id)) {
-      newSet.delete(id);
-    } else {
-      newSet.add(id);
-    }
-    setSelectedCustomerIds(newSet);
-  };
 
-  const selectAll = () => {
-    if (selectedCustomerIds.size === Object.keys(userData).length) {
-      setSelectedCustomerIds(new Set());
-    } else {
-      setSelectedCustomerIds(new Set(Object.keys(userData)));
-    }
-  };
 
   // Auto-run analysis if not present
   useEffect(() => {
@@ -147,24 +131,6 @@ export default function Home() {
     }
   };
 
-  const runBatchAdjudication = async () => {
-    if (selectedCustomerIds.size === 0) return;
-
-    // Convert set to array to iterate
-    const idsToRun = Array.from(selectedCustomerIds);
-
-    for (const id of idsToRun) {
-      // 1. Select the user in the UI so we see the progress
-      setSelectedUser(id);
-
-      // 2. Run the adjudication (and wait for it to finish)
-      await runAdjudication(id, true);
-
-      // Optional: Small delay between runs for better UX
-      await new Promise(resolve => setTimeout(resolve, 1000));
-    }
-  };
-
   return (
     <WorkbenchLayout
       customers={userData}
@@ -174,10 +140,6 @@ export default function Home() {
       analysisResults={analysisResults}
       runAdjudication={() => runAdjudication(selectedUser, true)}
       isAnalyzing={isAnalyzing}
-      selectedCustomerIds={selectedCustomerIds}
-      toggleCustomerSelection={toggleCustomerSelection}
-      selectAll={selectAll}
-      runBatch={runBatchAdjudication}
     >
       <EvidenceFeed
         articles={aiAnalysis?.articles || []}

@@ -3,10 +3,8 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { ShieldAlert, CheckSquare, Play } from "lucide-react";
+import { ShieldAlert } from "lucide-react";
 import { Customer } from "@/app/data";
-import { Checkbox } from "@/components/ui/checkbox";
-import { Button } from "@/components/ui/button";
 
 import { AIAnalysis } from "@/app/data";
 
@@ -14,10 +12,6 @@ interface SidebarProps {
     customers: Customer[];
     selectedUser: string;
     setSelectedUser: (id: string) => void;
-    selectedCustomerIds: Set<string>;
-    toggleCustomerSelection: (id: string) => void;
-    selectAll: () => void;
-    runBatch: () => void;
     isAnalyzing: boolean;
     analysisResults?: Record<string, { analysis: AIAnalysis, summary: any }>;
 }
@@ -27,15 +21,9 @@ export function Sidebar({
     customers,
     selectedUser,
     setSelectedUser,
-    selectedCustomerIds,
-    toggleCustomerSelection,
-    selectAll,
-    runBatch,
     isAnalyzing,
     analysisResults
 }: SidebarProps) {
-    const allSelected = customers.length > 0 && selectedCustomerIds.size === customers.length;
-
     return (
         <div className="w-[300px] border-r bg-white flex flex-col h-full border-slate-200">
             {/* Header */}
@@ -61,35 +49,6 @@ export function Sidebar({
                         <TabsTrigger value="my-queue" className="text-xs">My Queue</TabsTrigger>
                     </TabsList>
                 </Tabs>
-
-                {/* Batch Actions */}
-                <div className="flex items-center justify-between px-1">
-                    <div className="flex items-center gap-2">
-                        <Checkbox
-                            id="select-all"
-                            checked={allSelected}
-                            onCheckedChange={selectAll}
-                        />
-                        <label
-                            htmlFor="select-all"
-                            className="text-xs font-medium text-slate-600 cursor-pointer select-none"
-                        >
-                            Select All
-                        </label>
-                    </div>
-                    {selectedCustomerIds.size > 0 && (
-                        <Button
-                            variant="secondary"
-                            size="sm"
-                            className="h-7 text-xs bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-200"
-                            onClick={runBatch}
-                            disabled={isAnalyzing}
-                        >
-                            <Play size={10} className="mr-1.5 fill-current" />
-                            Run ({selectedCustomerIds.size})
-                        </Button>
-                    )}
-                </div>
             </div>
 
             {/* Queue List */}
@@ -98,7 +57,6 @@ export function Sidebar({
                     <div className="space-y-2 mt-2">
                         {customers.map((customer) => {
                             const isSelected = customer._id === selectedUser;
-                            const isChecked = selectedCustomerIds.has(customer._id);
                             const result = analysisResults?.[customer._id];
                             const summaryData = result?.summary;
 
@@ -130,14 +88,6 @@ export function Sidebar({
                                     {isSelected && (
                                         <div className="absolute left-0 top-3 bottom-3 w-1 bg-blue-500 rounded-r-md" />
                                     )}
-
-                                    {/* Checkbox */}
-                                    <div className="mt-1" onClick={(e) => e.stopPropagation()}>
-                                        <Checkbox
-                                            checked={isChecked}
-                                            onCheckedChange={() => toggleCustomerSelection(customer._id)}
-                                        />
-                                    </div>
 
                                     <div className="flex-1 cursor-pointer">
                                         <div className="flex justify-between items-start mb-1.5">

@@ -1,13 +1,16 @@
 import { ClientProfile } from "@/app/data";
 import { Badge } from "@/components/ui/badge";
-import { User, MapPin, Briefcase } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { User, MapPin, Briefcase, RefreshCw } from "lucide-react";
 import { cn } from "@/libf/utils";
 
 interface ClientHeaderProps {
     client: ClientProfile;
+    onAnalyze?: () => void;
+    isAnalyzing?: boolean;
 }
 
-export function ClientHeader({ client }: ClientHeaderProps) {
+export function ClientHeader({ client, onAnalyze, isAnalyzing }: ClientHeaderProps) {
     const locationString = typeof client.address === 'string' && client.address.startsWith('{')
         ? Object.values(JSON.parse(client.address)).join(", ")
         : typeof client.address === 'object'
@@ -50,6 +53,20 @@ export function ClientHeader({ client }: ClientHeaderProps) {
                         </div>
                     </div>
                 </div>
+
+                {/* Right Action: Re-analyze Button */}
+                {onAnalyze && (
+                    <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={onAnalyze}
+                        disabled={isAnalyzing}
+                        className="h-8 w-8 p-0 text-slate-500 border-slate-200 hover:bg-slate-50 hover:text-slate-900"
+                        title={isAnalyzing ? "Analyzing..." : "Re-analyze"}
+                    >
+                        <RefreshCw size={14} className={cn(isAnalyzing ? "animate-spin" : "")} />
+                    </Button>
+                )}
             </div>
         </div>
     );
