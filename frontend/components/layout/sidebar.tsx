@@ -15,7 +15,7 @@ interface SidebarProps {
 }
 
 
-export function Sidebar({ customers, selectedUser, setSelectedUser } : SidebarProps) {
+export function Sidebar({ customers, selectedUser, setSelectedUser }: SidebarProps) {
     return (
         <div className="w-[280px] border-r bg-white flex flex-col h-full border-slate-200">
             {/* Header */}
@@ -48,42 +48,43 @@ export function Sidebar({ customers, selectedUser, setSelectedUser } : SidebarPr
             {/* Queue List */}
             <ScrollArea className="flex-1 px-3 pb-4">
                 <div className="space-y-2 mt-2">
-                    {Object.keys(customers).map((id: string) => {
-                        customers[id].alertType = "Adverse Media";
-                        customers[id].status = id == selectedUser ? "active" : "non-active"
-                        let item = customers[id];
+                    {customers.map((customer) => {
+                        const isSelected = customer._id === selectedUser;
+                        const alertType = "Adverse Media"; // This could be dynamic later
+
                         return (
-                        <div
-                            key={id}
-                            className={cn(
-                                "p-3 rounded-lg border text-sm cursor-pointer transition-colors relative",
-                                item.status === "active"
-                                    ? "bg-blue-50/60 border-blue-200"
-                                    : "bg-white border-slate-100 hover:border-slate-300 hover:shadow-sm"
-                            )}
-                            onClick={() => {setSelectedUser(id)}}
-                        >
-                            {item.status === "active" && (
-                                <div className="absolute left-0 top-3 bottom-3 w-1 bg-blue-500 rounded-r-md" />
-                            )}
+                            <div
+                                key={customer._id}
+                                className={cn(
+                                    "p-3 rounded-lg border text-sm cursor-pointer transition-colors relative",
+                                    isSelected
+                                        ? "bg-blue-50/60 border-blue-200"
+                                        : "bg-white border-slate-100 hover:border-slate-300 hover:shadow-sm"
+                                )}
+                                onClick={() => { setSelectedUser(customer._id) }}
+                            >
+                                {isSelected && (
+                                    <div className="absolute left-0 top-3 bottom-3 w-1 bg-blue-500 rounded-r-md" />
+                                )}
 
-                            <div className="flex justify-between items-start mb-1.5 ml-1">
-                                <span className="font-semibold text-slate-900">{item.first_name} {item.last_name}</span>
-                                {item.status === "active" && <span className="h-2 w-2 rounded-full bg-blue-500 mt-1.5" />}
-                            </div>
+                                <div className="flex justify-between items-start mb-1.5 ml-1">
+                                    <span className="font-semibold text-slate-900">{customer.first_name} {customer.last_name}</span>
+                                    {isSelected && <span className="h-2 w-2 rounded-full bg-blue-500 mt-1.5" />}
+                                </div>
 
-                            <div className="flex items-center gap-2 ml-1">
-                                <Badge variant="outline" className={cn(
-                                    "px-1.5 py-0 h-5 text-[10px] font-medium border-0",
-                                    item.alertType === "Adverse Media"
-                                        ? "bg-amber-50 text-amber-700 ring-1 ring-amber-200"
-                                        : "bg-red-50 text-red-700 ring-1 ring-red-200"
-                                )}>
-                                    {item.alertType}
-                                </Badge>
+                                <div className="flex items-center gap-2 ml-1">
+                                    <Badge variant="outline" className={cn(
+                                        "px-1.5 py-0 h-5 text-[10px] font-medium border-0",
+                                        alertType === "Adverse Media"
+                                            ? "bg-amber-50 text-amber-700 ring-1 ring-amber-200"
+                                            : "bg-red-50 text-red-700 ring-1 ring-red-200"
+                                    )}>
+                                        {alertType}
+                                    </Badge>
+                                </div>
                             </div>
-                        </div>
-                    )})}
+                        )
+                    })}
                 </div>
             </ScrollArea>
         </div>

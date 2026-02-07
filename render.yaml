@@ -1,5 +1,5 @@
 services:
-  # A Docker web service
+  # Python Backend
   - type: web
     name: sentinel-backend
     runtime: python
@@ -17,3 +17,19 @@ services:
         sync: false
       - key: MODEL_ID
         sync: false
+
+  # Next.js Frontend
+  - type: web
+    name: sentinel-frontend
+    runtime: node
+    root: frontend
+    plan: free
+    autoDeploy: false
+    buildCommand: npm install && npm run build
+    startCommand: npm start
+    envVars:
+      - key: NEXT_PUBLIC_API_URL
+        fromService:
+          type: web
+          name: sentinel-backend
+          property: url

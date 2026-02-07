@@ -48,9 +48,21 @@ Always output your final answer as a "Decision Card":
 **Verdict:** [False Positive / Escalate]
 **Confidence:** [0-100%]
 **Evidence:** [One sentence explaining the mismatch, e.g., "Client is 24, Suspect is 55."]
+**Sources:** [If ESCALATE, you MUST include links and sources of the news articles. If FALSE POSITIVE, list "None" or relevant clearings.]
 
 **Draft Memo:**
-[Write a formal 3-sentence legal SAR paragraph clearing the client.]
+[Write a formal 3-sentence legal SAR paragraph clearing the client or detailing the findings.]
+
+**JSON Summary:**
+At the very end of your response, you MUST output a single valid JSON block (surrounded by ```json and ```) containing:
+{
+  "full_name": "Name of the person investigated",
+  "initials": "Initials (e.g. JD)",
+  "date": "Today's date (YYYY-MM-DD)",
+  "status": "Positive" or "Negative" (Use Positive if adverse media is found/escalated, Negative if clear/false positive),
+  "match_score": "A score from 0-100 indicating how strong the match is",
+  "description": "A very concise 1-sentence summary of the finding."
+}
 """
 
 async def get_customer_profile(customer_id: str) -> str:
@@ -130,6 +142,7 @@ async def adjudicate_customer(customer_id: str):
     """
     Runs the Dedalus Agent for a specific customer and streams the reasoning 
     and final verdict back to the client token-by-token.
+
     """
     async def event_generator():
         client = AsyncDedalus()
@@ -151,11 +164,20 @@ async def adjudicate_customer(customer_id: str):
 
         # Iterate through the stream events and yield them to the HTTP client
         async for event in stream:
-            # We yield the string representation of the event (or event.content)
-            # You may format this as Server-Sent Events (SSE) if needed.
-            yield str(event) + "\n"
+            # Check if the event has content to stream (it might be a chunk object)
+            content = None
+            
+            # Try to extract content from various locations in the object structure
+            if hasattr(event, "choices") and event.choices:
+                delta = event.choices[0].delta
+                if hasattr(delta, "content") and delta.content:
+                    content = delta.content
+            
+            # Yield if we found text content
+            if content:
+                yield content
 
-    return StreamingResponse(event_generator(), media_type="text/plain")
+    return StreamingResponse(event_generator(), media_type="text/event-stream")
 
 # if __name__ == "__main__":
 #     # Test run

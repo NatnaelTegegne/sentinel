@@ -1,14 +1,16 @@
 export interface ClientProfile {
-    name: string;
-    id: string;
-    riskRating: string;
-    age: number;
-    occupation: string;
-    citizenship: string;
-    address: string;
-    taxResidency: string;
-    tenure: string;
-    products: string[];
+    _id: string; // Backend uses _id
+    id?: string; // Frontend might use id
+    first_name: string;
+    last_name: string;
+    riskRating?: string;
+    age?: number;
+    occupation?: string;
+    citizenship?: string;
+    address: string | object; // Can be stringified or object
+    taxResidency?: string;
+    tenure?: string;
+    products?: string[];
 }
 
 export interface Article {
@@ -20,10 +22,7 @@ export interface Article {
     mismatchHighlight?: string;
 }
 
-export interface Customer {
-    first_name: string;
-    last_name: string;
-}
+export type Customer = ClientProfile;
 
 export interface AIAnalysis {
     summary: string;
@@ -31,15 +30,26 @@ export interface AIAnalysis {
     articles: Article[];
 }
 
+export interface SummaryCardData {
+    full_name: string;
+    initials: string;
+    date: string;
+    status: "Positive" | "Negative";
+    match_score: string | number;
+    description: string;
+}
+
 export interface CaseData {
     client: ClientProfile;
     ai_analysis: AIAnalysis;
+    summary_card?: SummaryCardData;
 }
 
 export const mockData: CaseData = {
     client: {
-        name: "John Smith",
-        id: "CUST-8839201",
+        _id: "CUST-8839201",
+        first_name: "John",
+        last_name: "Smith",
         riskRating: "Low",
         age: 24,
         occupation: "Student",

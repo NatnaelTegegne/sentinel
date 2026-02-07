@@ -1,17 +1,26 @@
-import { Article } from "@/app/data";
+import { Article, SummaryCardData } from "@/app/data";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/libf/utils";
-import { ExternalLink } from "lucide-react";
+import { ExternalLink, CheckCircle2, AlertTriangle, XCircle, Search } from "lucide-react";
 
 interface EvidenceFeedProps {
     articles: Article[];
+    summaryData?: SummaryCardData | null;
 }
 
-export function EvidenceFeed({ articles }: EvidenceFeedProps) {
+export function EvidenceFeed({ articles, summaryData }: EvidenceFeedProps) {
     return (
-        <div className="p-6 space-y-4 max-w-4xl mx-auto w-full">
-            <div className="flex items-center justify-between mb-2">
+        <div className="p-6 space-y-6 max-w-4xl mx-auto w-full">
+
+            {/* Summary Card - Only shows when data is available */}
+            {summaryData && (
+                <div className="animate-in fade-in slide-in-from-top-4 duration-700">
+                    <SummaryCard data={summaryData} />
+                </div>
+            )}
+
+            <div className="flex items-center justify-between mb-2 mt-8">
                 <h3 className="text-sm font-semibold text-slate-900 flex items-center gap-2">
                     Evidence Stream
                     <Badge variant="secondary" className="bg-slate-100 text-slate-600 border-slate-200">
@@ -29,6 +38,71 @@ export function EvidenceFeed({ articles }: EvidenceFeedProps) {
             </div>
         </div>
     );
+}
+
+function SummaryCard({ data }: { data: SummaryCardData }) {
+    const isPositive = data.status === "Positive";
+
+    return (
+        <Card className={cn(
+            "border shadow-sm overflow-hidden",
+            isPositive ? "border-red-200 bg-red-50/30" : "border-emerald-200 bg-emerald-50/30"
+        )}>
+            <div className="p-5 flex flex-col gap-4">
+                {/* Header Row */}
+                <div className="flex items-start justify-between">
+                    <div className="flex items-center gap-3">
+                        <div className={cn(
+                            "h-10 w-10 rounded-full flex items-center justify-center border",
+                            isPositive ? "bg-red-100 text-red-600 border-red-200" : "bg-emerald-100 text-emerald-600 border-emerald-200"
+                        )}>
+                            <span className="text-sm font-bold">{data.initials}</span>
+                        </div>
+                        <div>
+                            <h3 className="text-lg font-bold text-slate-900 leading-tight">{data.full_name}</h3>
+                            <p className="text-xs text-slate-500 font-medium">investigation date: {data.date}</p>
+                        </div>
+                    </div>
+                    <Badge className={cn(
+                        "px-3 py-1 text-xs font-semibold uppercase tracking-wide border",
+                        isPositive ? "bg-red-100 text-red-700 border-red-200 hover:bg-red-200" : "bg-emerald-100 text-emerald-700 border-emerald-200 hover:bg-emerald-200"
+                    )}>
+                        {data.status === "Positive" ? "Escalate" : "False Positive"}
+                    </Badge>
+                </div>
+
+                {/* Description */}
+                <div className="bg-white/60 p-3 rounded-md border border-slate-200/50 text-sm text-slate-700 leading-relaxed">
+                    {data.description}
+                </div>
+
+                {/* Metric Row */}
+                <div className="flex items-center gap-6 pt-1 border-t border-slate-200/50">
+                    <div className="flex flex-col">
+                        <span className="text-[10px] uppercase tracking-wider text-slate-400 font-semibold">Match Score</span>
+                        <div className="flex items-baseline gap-1">
+                            <span className={cn(
+                                "text-xl font-bold",
+                                isPositive ? "text-red-600" : "text-emerald-600"
+                            )}>{data.match_score}</span>
+                            <span className="text-xs text-slate-400">/ 100</span>
+                        </div>
+                    </div>
+                    <div className="flex flex-col">
+                        <span className="text-[10px] uppercase tracking-wider text-slate-400 font-semibold">Status</span>
+                        <div className="flex items-center gap-1.5 mt-0.5">
+                            {isPositive ? (
+                                <AlertTriangle size={14} className="text-red-500" />
+                            ) : (
+                                <CheckCircle2 size={14} className="text-emerald-500" />
+                            )}
+                            <span className="text-sm font-medium text-slate-700">{data.status}</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </Card>
+    )
 }
 
 function ArticleCard({ article }: { article: Article }) {

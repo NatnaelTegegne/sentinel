@@ -44,7 +44,13 @@ export function ClientHeader({ client }: ClientHeaderProps) {
                         <MapPin size={14} />
                         Location
                     </div>
-                    <div className="text-sm font-medium text-slate-900">{Object.values(JSON.parse(client.address)).join(" ")}</div>
+                    <div className="text-sm font-medium text-slate-900">
+                        {typeof client.address === 'string' && client.address.startsWith('{')
+                            ? Object.values(JSON.parse(client.address)).join(" ")
+                            : typeof client.address === 'object'
+                                ? Object.values(client.address).join(" ")
+                                : client.address}
+                    </div>
                     <div className="text-xs text-slate-500 mt-0.5">Tax Residency: <span className="text-slate-700 font-medium">{client.taxResidency}</span></div>
                 </div>
 
