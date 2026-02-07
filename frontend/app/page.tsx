@@ -44,7 +44,6 @@ function parseSSE(buffer: string) {
 }
 
 type RightPanelEvent =
-  | { id: string; kind: "run"; title: string; status: "running" | "complete"; ts: number }
   | { id: string; kind: "tool"; title: string; status: "info"; ts: number; rawToolName?: string }
   | { id: string; kind: "text"; markdown: string; ts: number };
 
@@ -70,7 +69,6 @@ function humanizeToolName(name: string) {
 function prettyToolTitle(raw: string) {
   const n = (raw || "").toLowerCase();
 
-  // exact mappings (add more as needed)
   const exactMap: Record<string, string> = {
     "get_customer_profile": "Customer profile lookup",
     "query_nessie": "Banking database lookup",
@@ -83,7 +81,6 @@ function prettyToolTitle(raw: string) {
 
   if (exactMap[raw]) return exactMap[raw];
 
-  // fuzzy mappings
   if (n.includes("exa")) return "Web search (Exa)";
   if (n.includes("nessie")) return "Banking database lookup";
   if (n.includes("customer") && n.includes("profile")) return "Customer profile lookup";
@@ -101,7 +98,7 @@ export default function Home() {
   const [analysisResults, setAnalysisResults] = useState<Record<string, AnalysisResult>>({});
   const [analyzingIds, setAnalyzingIds] = useState<Set<string>>(new Set());
 
-  const API_URL = "http://127.0.0.1:8000";
+  const API_URL = "https://sentinel-gva5.onrender.com/" //"http://127.0.0.1:8000";
 
   const currentResult = analysisResults[selectedUser];
   const aiAnalysis = currentResult?.analysis || null;
@@ -139,7 +136,6 @@ export default function Home() {
 
     setAnalyzingIds(prev => new Set(prev).add(customerId));
 
-    // Reset per-customer state
     setAnalysisResults(prev => ({
       ...prev,
       [customerId]: {
@@ -159,7 +155,12 @@ export default function Home() {
       const decoder = new TextDecoder();
 
       let buffer = "";
-      let accumulatedText = ""; // full raw stream (includes json block when it arrives)
+
+      // Raw stream (includes json block)
+      let rawText = "";
+
+      // What we have already rendered (display text, json stripped)
+      let shownText = "";
 
       const pushEvent = (evt: RightPanelEvent) => {
         setAnalysisResults(prev => {
@@ -169,7 +170,6 @@ export default function Home() {
             events: []
           };
 
-          // dedupe tools by id
           if (evt.kind === "tool" && cur.events.some(e => e.id === evt.id)) return prev;
 
           return {
@@ -182,24 +182,8 @@ export default function Home() {
         });
       };
 
-      const upsertTextCardAndSummary = (delta: string, ts: number) => {
+      const appendTextDeltaToUI = (delta: string, ts: number) => {
         if (!delta) return;
-
-        accumulatedText += delta;
-
-        // Extract final JSON summary block (your old logic)
-        const jsonMatch = accumulatedText.match(/```json\n([\s\S]*?)\n```/);
-        let displayText = accumulatedText;
-        let newSummaryData: SummaryCardData | null = null;
-
-        if (jsonMatch) {
-          try {
-            newSummaryData = JSON.parse(jsonMatch[1]);
-            displayText = accumulatedText.replace(jsonMatch[0], "").trim();
-          } catch {
-            // incomplete JSON; ignore until complete
-          }
-        }
 
         setAnalysisResults(prev => {
           const cur: AnalysisResult = prev[customerId] ?? {
@@ -212,17 +196,12 @@ export default function Home() {
           const last = events[events.length - 1];
 
           if (last && last.kind === "text") {
-            // append to the current text card (but use displayText delta semantics)
-            // We only have delta; easiest is to append delta, BUT we must strip JSON from UI if it appears.
-            // When JSON appears, displayText may remove the block, so we overwrite the full text card with displayText.
-            const updated = { ...last, markdown: displayText };
-            events[events.length - 1] = updated;
+            events[events.length - 1] = { ...last, markdown: last.markdown + delta };
           } else {
-            // start a new text card
             events.push({
               id: `text-${Date.now()}-${Math.random().toString(16).slice(2)}`,
               kind: "text",
-              markdown: displayText,
+              markdown: delta,
               ts
             });
           }
@@ -231,12 +210,141 @@ export default function Home() {
             ...prev,
             [customerId]: {
               ...cur,
+              events
+            }
+          };
+        });
+      };
+
+      const rebuildLatestTextCard = (fullDisplayText: string, ts: number, newSummaryData: SummaryCardData | null) => {
+        setAnalysisResults(prev => {
+          const cur: AnalysisResult = prev[customerId] ?? {
+            analysis: { summary: "", confidence: 0, articles: [] },
+            summary: null,
+            events: []
+          };
+
+          const events = [...cur.events];
+
+          // Find the most recent text event and set it to the full display text
+          for (let i = events.length - 1; i >= 0; i--) {
+            if (events[i].kind === "text") {
+              events[i] = { ...(events[i] as any), markdown: fullDisplayText, ts };
+              break;
+            }
+          }
+
+          return {
+            ...prev,
+            [customerId]: {
+              ...cur,
               events,
-              analysis: { ...cur.analysis, summary: displayText },
+              analysis: { ...cur.analysis, summary: fullDisplayText },
               summary: newSummaryData || cur.summary
             }
           };
         });
+      };
+
+      const handleTokenDelta = (delta: string) => {
+        if (!delta) return;
+        rawText += delta;
+
+        // Parse json block (same as before)
+        const jsonMatch = rawText.match(/```json\n([\s\S]*?)\n```/);
+        let displayText = rawText;
+        let newSummaryData: SummaryCardData | null = null;
+
+        if (jsonMatch) {
+          try {
+            newSummaryData = JSON.parse(jsonMatch[1]);
+            displayText = rawText.replace(jsonMatch[0], "").trim();
+          } catch {
+            // incomplete JSON
+          }
+        }
+
+        const ts = Date.now();
+
+        // If displayText regressed (e.g., json removed content), rebuild latest text card once.
+        // Also covers edge case where server replays content (shouldn't, but safe).
+        if (!displayText.startsWith(shownText)) {
+          shownText = displayText;
+
+          // ensure there is at least one text card; if none, create it by pushing
+          setAnalysisResults(prev => {
+            const cur: AnalysisResult = prev[customerId] ?? {
+              analysis: { summary: "", confidence: 0, articles: [] },
+              summary: null,
+              events: []
+            };
+
+            const hasText = cur.events.some(e => e.kind === "text");
+            if (hasText) return prev;
+
+            return {
+              ...prev,
+              [customerId]: {
+                ...cur,
+                events: [
+                  ...cur.events,
+                  {
+                    id: `text-${Date.now()}-${Math.random().toString(16).slice(2)}`,
+                    kind: "text",
+                    markdown: "",
+                    ts
+                  }
+                ]
+              }
+            };
+          });
+
+          // now rebuild the most recent text card to the full display text
+          rebuildLatestTextCard(displayText, ts, newSummaryData);
+          return;
+        }
+
+        // Normal case: append only the new delta portion
+        const newPart = displayText.slice(shownText.length);
+        if (newPart) {
+          shownText = displayText;
+
+          appendTextDeltaToUI(newPart, ts);
+
+          // keep EvidenceFeed in sync
+          setAnalysisResults(prev => {
+            const cur: AnalysisResult = prev[customerId] ?? {
+              analysis: { summary: "", confidence: 0, articles: [] },
+              summary: null,
+              events: []
+            };
+
+            return {
+              ...prev,
+              [customerId]: {
+                ...cur,
+                analysis: { ...cur.analysis, summary: shownText },
+                summary: newSummaryData || cur.summary
+              }
+            };
+          });
+        } else if (newSummaryData) {
+          // json parsed but no visible delta — still update summary card
+          setAnalysisResults(prev => {
+            const cur: AnalysisResult = prev[customerId] ?? {
+              analysis: { summary: "", confidence: 0, articles: [] },
+              summary: null,
+              events: []
+            };
+            return {
+              ...prev,
+              [customerId]: {
+                ...cur,
+                summary: newSummaryData
+              }
+            };
+          });
+        }
       };
 
       while (true) {
@@ -250,18 +358,8 @@ export default function Home() {
 
         for (const msg of parsed.messages) {
           if (msg.event === "token") {
-            upsertTextCardAndSummary(msg.data?.delta ?? "", Date.now());
+            handleTokenDelta(msg.data?.delta ?? "");
           }
-
-          // if (msg.event === "run_started") {
-          //   pushEvent({
-          //     id: `run-${Date.now()}`,
-          //     kind: "run",
-          //     title: "Agent started",
-          //     status: "running",
-          //     ts: msg.data?.ts ?? Date.now()
-          //   });
-          // }
 
           if (msg.event === "tool_call_started") {
             const rawTool = msg.data?.tool ?? "Tool";
@@ -270,22 +368,12 @@ export default function Home() {
             pushEvent({
               id: toolId,
               kind: "tool",
-              title: `${prettyToolTitle(rawTool)}`,
+              title: `${prettyToolTitle(rawTool)}`, // no "Calling" prefix for the slimmer row
               status: "info",
-              ts: Date.now(),
+              ts: Date.now(), // use client time for consistency
               rawToolName: rawTool
             });
           }
-
-          // if (msg.event === "run_finished") {
-          //   pushEvent({
-          //     id: `run-finished-${Date.now()}`,
-          //     kind: "run",
-          //     title: "Agent finished",
-          //     status: "complete",
-          //     ts: msg.data?.ts ?? Date.now()
-          //   });
-          // }
         }
       }
     } catch (err) {
