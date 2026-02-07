@@ -1,4 +1,4 @@
-import { ClientProfile } from "@/app/data";
+import { ClientProfile, SummaryCardData } from "@/app/data";
 import { Badge } from "@/components/ui/badge";
 import { User, MapPin, Briefcase, Calendar, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -8,9 +8,10 @@ interface ClientHeaderProps {
     client: ClientProfile;
     onAnalyze?: () => void;
     isAnalyzing?: boolean;
+    analysisStatus?: SummaryCardData;
 }
 
-export function ClientHeader({ client, onAnalyze, isAnalyzing }: ClientHeaderProps) {
+export function ClientHeader({ client, onAnalyze, isAnalyzing, analysisStatus }: ClientHeaderProps) {
     // Improved parsing: treat as object if possible to preserve city/state in address
     let displayAddress = "";
     let displayAge = client.age;
@@ -62,6 +63,29 @@ export function ClientHeader({ client, onAnalyze, isAnalyzing }: ClientHeaderPro
 
     displayAddress = cleanParts.join(", ");
 
+    // Determine status badge based on backend output
+    // Backend outputs: "YES" (adverse media found), "NO" (clear), or "MANUAL REVIEW"
+    let statusColor = "bg-blue-100 text-blue-600 border-blue-200";
+    let statusText = "Pending";
+
+    if (analysisStatus) {
+        const status = analysisStatus.status;
+
+        if (status === "NO") {
+            // No adverse media mentions
+            statusColor = "bg-green-100 text-green-700 border-green-200";
+            statusText = "Clear";
+        } else if (status === "YES") {
+            // Adverse media found
+            statusColor = "bg-red-100 text-red-700 border-red-200";
+            statusText = "Flagged";
+        } else if (status === "MANUAL REVIEW") {
+            // Manual review required
+            statusColor = "bg-yellow-100 text-yellow-700 border-yellow-200";
+            statusText = "Review";
+        }
+    }
+
 
     return (
         <div className="sticky top-0 z-10 bg-white/80 backdrop-blur-md border-b border-slate-200 px-6 py-4 shadow-sm">
@@ -82,13 +106,8 @@ export function ClientHeader({ client, onAnalyze, isAnalyzing }: ClientHeaderPro
                             <span className="font-mono text-[10px] bg-slate-100 px-1.5 py-0.5 rounded text-slate-500 border border-slate-200">
                                 {client.id || client._id}
                             </span>
-                            <Badge variant="outline" className={cn(
-                                "text-[10px] px-2 h-5 border rounded-full",
-                                client.riskRating === 'Low' ? "bg-emerald-50 text-emerald-700 border-emerald-200" :
-                                    client.riskRating === 'High' ? "bg-red-50 text-red-700 border-red-200" :
-                                        "bg-amber-50 text-amber-700 border-amber-200"
-                            )}>
-                                {client.riskRating || "Unknown"} Risk
+                            <Badge variant="outline" className={cn("px-2 py-0 h-5 text-[10px] font-medium border", statusColor)}>
+                                {statusText}
                             </Badge>
                         </div>
                     </div>

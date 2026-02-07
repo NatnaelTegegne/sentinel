@@ -41,6 +41,7 @@ export function EvidenceFeed({ articles, summaryData }: EvidenceFeedProps) {
 }
 
 function SummaryCard({ data }: { data: SummaryCardData }) {
+    // Backend outputs "YES" for adverse media found, "NO" for clear
     const isAdverse = data.status === "YES";
 
     return (
@@ -67,7 +68,7 @@ function SummaryCard({ data }: { data: SummaryCardData }) {
                         "px-3 py-1 text-xs font-semibold uppercase tracking-wide border",
                         isAdverse ? "bg-red-100 text-red-700 border-red-200 hover:bg-red-200" : "bg-emerald-100 text-emerald-700 border-emerald-200 hover:bg-emerald-200"
                     )}>
-                        {data.status === "YES" ? "Escalate" : "No Adverse Media Found!"}
+                        {data.status === "YES" ? "Escalate" : data.status === "MANUAL REVIEW" ? "Manual Review" : "No Adverse Media Found!"}
                     </Badge>
                 </div>
 
@@ -145,20 +146,20 @@ function ArticleCard({ article }: { article: Article }) {
                             <span className="text-sm font-bold text-slate-900">{article.source}</span>
                             <span className="text-xs text-slate-400">• {article.date}</span>
                         </div>
-                        
+
                         <div className="flex items-center gap-2 mt-1">
                             {/* --- ENHANCED SENTIMENT BADGE --- */}
                             <div className={cn(
                                 "flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase border tracking-wider",
-                                article.sentiment === "Negative" 
-                                    ? "bg-red-50 text-red-700 border-red-200" 
-                                    : article.sentiment === "Positive" 
-                                        ? "bg-emerald-50 text-emerald-700 border-emerald-200" 
+                                article.sentiment === "Negative"
+                                    ? "bg-red-50 text-red-700 border-red-200"
+                                    : article.sentiment === "Positive"
+                                        ? "bg-emerald-50 text-emerald-700 border-emerald-200"
                                         : "bg-slate-100 text-slate-600 border-slate-300" // Neutral state
                             )}>
                                 {article.sentiment === "Negative" && <AlertCircle size={10} strokeWidth={3} className="animate-pulse" />}
                                 {article.sentiment === "Positive" && <CheckCircle2 size={10} strokeWidth={3} />}
-                                {(article.sentiment === "Neutral" || !["Negative", "Positive"].includes(article.sentiment)) && 
+                                {(article.sentiment === "Neutral" || !["Negative", "Positive"].includes(article.sentiment)) &&
                                     <Circle size={8} fill="currentColor" className="text-slate-400" />
                                 }
                                 <span>{article.sentiment || "Neutral"}</span>

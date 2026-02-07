@@ -60,17 +60,26 @@ export function Sidebar({
                             const result = analysisResults?.[customer._id];
                             const summaryData = result?.summary;
 
-                            // Determine status color if analyzed
-                            let statusColor = "bg-slate-100 text-slate-500"; // Default/Pending
-                            let statusText = "";
+                            // Determine status badge based on backend output
+                            // Backend outputs: "YES" (adverse media found), "NO" (clear), or "MANUAL REVIEW")
+                            let statusColor = "bg-blue-100 text-blue-600 border-blue-200"; // Not analyzed
+                            let statusText = "Pending";
 
                             if (summaryData) {
-                                if (summaryData.status === "Negative") {
+                                const status = summaryData.status;
+
+                                if (status === "NO") {
+                                    // No adverse media mentions
                                     statusColor = "bg-green-100 text-green-700 border-green-200";
-                                    statusText = "Clean";
-                                } else if (summaryData.status === "Positive") {
+                                    statusText = "Clear";
+                                } else if (status === "YES") {
+                                    // Adverse media found
                                     statusColor = "bg-red-100 text-red-700 border-red-200";
-                                    statusText = "Risk";
+                                    statusText = "Flagged";
+                                } else if (status === "MANUAL REVIEW") {
+                                    // Manual review required
+                                    statusColor = "bg-yellow-100 text-yellow-700 border-yellow-200";
+                                    statusText = "Review";
                                 }
                             }
 
@@ -92,12 +101,10 @@ export function Sidebar({
                                     <div className="flex-1 cursor-pointer">
                                         <div className="flex justify-between items-start mb-1.5">
                                             <span className="font-semibold text-slate-900">{customer.first_name} {customer.last_name}</span>
-                                            {/* Status Badge */}
-                                            {statusText && (
-                                                <Badge variant="outline" className={cn("px-1.5 py-0 h-5 text-[10px] font-medium border", statusColor)}>
-                                                    {statusText}
-                                                </Badge>
-                                            )}
+                                            {/* Status Badge - Always Visible */}
+                                            <Badge variant="outline" className={cn("px-2 py-0 h-5 text-[10px] font-medium border", statusColor)}>
+                                                {statusText}
+                                            </Badge>
                                         </div>
 
                                         <div className="flex items-center gap-2">
