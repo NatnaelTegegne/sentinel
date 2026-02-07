@@ -13,8 +13,14 @@ interface WorkbenchLayoutProps {
     selectedUser: string;
     setSelectedUser: (id: string) => void;
     aiAnalysis?: AIAnalysis | null;
+    analysisResults?: Record<string, { analysis: AIAnalysis, summary: any }>; // Add this prop
     runAdjudication?: () => void;
-    isAnalyzing?: boolean;
+    isAnalyzing: boolean;
+    // Batch props
+    selectedCustomerIds: Set<string>;
+    toggleCustomerSelection: (id: string) => void;
+    selectAll: () => void;
+    runBatch: () => void;
 }
 
 export function WorkbenchLayout({
@@ -23,8 +29,13 @@ export function WorkbenchLayout({
     selectedUser,
     setSelectedUser,
     aiAnalysis,
+    analysisResults, // Destructure
     runAdjudication,
-    isAnalyzing
+    isAnalyzing,
+    selectedCustomerIds,
+    toggleCustomerSelection,
+    selectAll,
+    runBatch
 }: WorkbenchLayoutProps) {
     if (!customers || !customers[selectedUser]) return <div className="p-10">Loading customers...</div>;
 
@@ -33,7 +44,17 @@ export function WorkbenchLayout({
     return (
         <div className="flex h-screen bg-slate-50 overflow-hidden font-sans text-slate-900 selection:bg-blue-100">
             {/* Left Sidebar */}
-            <Sidebar customers={Object.values(customers)} selectedUser={selectedUser} setSelectedUser={setSelectedUser} />
+            <Sidebar
+                customers={Object.values(customers)}
+                selectedUser={selectedUser}
+                setSelectedUser={setSelectedUser}
+                selectedCustomerIds={selectedCustomerIds}
+                toggleCustomerSelection={toggleCustomerSelection}
+                selectAll={selectAll}
+                runBatch={runBatch}
+                isAnalyzing={!!isAnalyzing}
+                analysisResults={analysisResults} // Pass down
+            />
 
             {/* Main Stage */}
             <div className="flex-1 flex flex-col min-w-0 bg-white relative">

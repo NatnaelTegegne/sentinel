@@ -1,23 +1,43 @@
-"use client";
-
 import { cn } from "@/libf/utils";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { ShieldAlert } from "lucide-react";
+import { ShieldAlert, CheckSquare, Play } from "lucide-react";
 import { Customer } from "@/app/data";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Button } from "@/components/ui/button";
+
+import { AIAnalysis } from "@/app/data";
 
 interface SidebarProps {
     customers: Customer[];
     selectedUser: string;
-    setSelectedUser: any;
+    setSelectedUser: (id: string) => void;
+    selectedCustomerIds: Set<string>;
+    toggleCustomerSelection: (id: string) => void;
+    selectAll: () => void;
+    runBatch: () => void;
+    isAnalyzing: boolean;
+    analysisResults?: Record<string, { analysis: AIAnalysis, summary: any }>;
 }
 
 
-export function Sidebar({ customers, selectedUser, setSelectedUser }: SidebarProps) {
+export function Sidebar({
+    customers,
+    selectedUser,
+    setSelectedUser,
+    selectedCustomerIds,
+    toggleCustomerSelection,
+    selectAll,
+    runBatch,
+    isAnalyzing,
+    analysisResults
+}: SidebarProps) {
+    const allSelected = customers.length > 0 && selectedCustomerIds.size === customers.length;
+
     return (
-        <div className="w-[280px] border-r bg-white flex flex-col h-full border-slate-200">
+        <div className="w-[300px] border-r bg-white flex flex-col h-full border-slate-200">
             {/* Header */}
             <div className="h-16 flex items-center px-4 border-b border-slate-100 flex-shrink-0">
                 <div className="flex items-center gap-2">
@@ -35,58 +55,113 @@ export function Sidebar({ customers, selectedUser, setSelectedUser }: SidebarPro
             </div>
 
             {/* Primary Nav */}
-            <div className="px-3 pt-4 pb-2 flex-shrink-0">
+            <div className="px-3 pt-4 pb-2 flex-shrink-0 space-y-3">
                 <Tabs defaultValue="my-queue" className="w-full">
-                    <TabsList className="w-full grid grid-cols-3 bg-slate-100 h-8">
+                    <TabsList className="w-full grid grid-cols-1 bg-slate-100 h-8">
                         <TabsTrigger value="my-queue" className="text-xs">My Queue</TabsTrigger>
-                        <TabsTrigger value="team" className="text-xs">Team</TabsTrigger>
-                        <TabsTrigger value="closed" className="text-xs">Closed</TabsTrigger>
                     </TabsList>
                 </Tabs>
+
+                {/* Batch Actions */}
+                <div className="flex items-center justify-between px-1">
+                    <div className="flex items-center gap-2">
+                        <Checkbox
+                            id="select-all"
+                            checked={allSelected}
+                            onCheckedChange={selectAll}
+                        />
+                        <label
+                            htmlFor="select-all"
+                            className="text-xs font-medium text-slate-600 cursor-pointer select-none"
+                        >
+                            Select All
+                        </label>
+                    </div>
+                    {selectedCustomerIds.size > 0 && (
+                        <Button
+                            variant="secondary"
+                            size="sm"
+                            className="h-7 text-xs bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-200"
+                            onClick={runBatch}
+                            disabled={isAnalyzing}
+                        >
+                            <Play size={10} className="mr-1.5 fill-current" />
+                            Run ({selectedCustomerIds.size})
+                        </Button>
+                    )}
+                </div>
             </div>
 
             {/* Queue List */}
-            <ScrollArea className="flex-1 px-3 pb-4">
-                <div className="space-y-2 mt-2">
-                    {customers.map((customer) => {
-                        const isSelected = customer._id === selectedUser;
-                        const alertType = "Adverse Media"; // This could be dynamic later
+            <div className="flex-1 min-h-0">
+                <ScrollArea className="h-full px-3 pb-4">
+                    <div className="space-y-2 mt-2">
+                        {customers.map((customer) => {
+                            const isSelected = customer._id === selectedUser;
+                            const isChecked = selectedCustomerIds.has(customer._id);
+                            const result = analysisResults?.[customer._id];
+                            const summaryData = result?.summary;
 
-                        return (
-                            <div
-                                key={customer._id}
-                                className={cn(
-                                    "p-3 rounded-lg border text-sm cursor-pointer transition-colors relative",
-                                    isSelected
-                                        ? "bg-blue-50/60 border-blue-200"
-                                        : "bg-white border-slate-100 hover:border-slate-300 hover:shadow-sm"
-                                )}
-                                onClick={() => { setSelectedUser(customer._id) }}
-                            >
-                                {isSelected && (
-                                    <div className="absolute left-0 top-3 bottom-3 w-1 bg-blue-500 rounded-r-md" />
-                                )}
+                            // Determine status color if analyzed
+                            let statusColor = "bg-slate-100 text-slate-500"; // Default/Pending
+                            let statusText = "";
 
-                                <div className="flex justify-between items-start mb-1.5 ml-1">
-                                    <span className="font-semibold text-slate-900">{customer.first_name} {customer.last_name}</span>
-                                    {isSelected && <span className="h-2 w-2 rounded-full bg-blue-500 mt-1.5" />}
+                            if (summaryData) {
+                                if (summaryData.status === "Negative") {
+                                    statusColor = "bg-green-100 text-green-700 border-green-200";
+                                    statusText = "Clean";
+                                } else if (summaryData.status === "Positive") {
+                                    statusColor = "bg-red-100 text-red-700 border-red-200";
+                                    statusText = "Risk";
+                                }
+                            }
+
+                            return (
+                                <div
+                                    key={customer._id}
+                                    className={cn(
+                                        "p-3 rounded-lg border text-sm transition-colors relative flex gap-3 group",
+                                        isSelected
+                                            ? "bg-blue-50/60 border-blue-200"
+                                            : "bg-white border-slate-100 hover:border-slate-300 hover:shadow-sm"
+                                    )}
+                                    onClick={() => setSelectedUser(customer._id)}
+                                >
+                                    {isSelected && (
+                                        <div className="absolute left-0 top-3 bottom-3 w-1 bg-blue-500 rounded-r-md" />
+                                    )}
+
+                                    {/* Checkbox */}
+                                    <div className="mt-1" onClick={(e) => e.stopPropagation()}>
+                                        <Checkbox
+                                            checked={isChecked}
+                                            onCheckedChange={() => toggleCustomerSelection(customer._id)}
+                                        />
+                                    </div>
+
+                                    <div className="flex-1 cursor-pointer">
+                                        <div className="flex justify-between items-start mb-1.5">
+                                            <span className="font-semibold text-slate-900">{customer.first_name} {customer.last_name}</span>
+                                            {/* Status Badge */}
+                                            {statusText && (
+                                                <Badge variant="outline" className={cn("px-1.5 py-0 h-5 text-[10px] font-medium border", statusColor)}>
+                                                    {statusText}
+                                                </Badge>
+                                            )}
+                                        </div>
+
+                                        <div className="flex items-center gap-2">
+                                            <span className="text-xs text-slate-500 truncate max-w-[180px]">
+                                                {customer.occupation || "Unknown Role"}
+                                            </span>
+                                        </div>
+                                    </div>
                                 </div>
-
-                                <div className="flex items-center gap-2 ml-1">
-                                    <Badge variant="outline" className={cn(
-                                        "px-1.5 py-0 h-5 text-[10px] font-medium border-0",
-                                        alertType === "Adverse Media"
-                                            ? "bg-amber-50 text-amber-700 ring-1 ring-amber-200"
-                                            : "bg-red-50 text-red-700 ring-1 ring-red-200"
-                                    )}>
-                                        {alertType}
-                                    </Badge>
-                                </div>
-                            </div>
-                        )
-                    })}
-                </div>
-            </ScrollArea>
+                            )
+                        })}
+                    </div>
+                </ScrollArea>
+            </div>
         </div>
     );
 }

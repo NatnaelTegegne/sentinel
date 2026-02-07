@@ -2,16 +2,26 @@
 
 import { WorkbenchLayout } from "@/components/layout/workbench-layout";
 import { EvidenceFeed } from "@/components/layout/evidence-feed";
-import { ClientProfile, AIAnalysis } from "@/app/data";
+import { ClientProfile, AIAnalysis, SummaryCardData } from "@/app/data";
 import { useEffect, useState } from "react";
 
 export default function Home() {
   const [userData, setUserData] = useState<Record<string, ClientProfile>>({});
   const [selectedUser, setSelectedUser] = useState<string>("");
-  const [aiAnalysis, setAiAnalysis] = useState<AIAnalysis | null>(null);
-  const [summaryCardData, setSummaryCardData] = useState<any>(null);
-  const [isAnalyzing, setIsAnalyzing] = useState(false);
+
+  // Caching State
+  const [analysisResults, setAnalysisResults] = useState<Record<string, { analysis: AIAnalysis, summary: SummaryCardData | null }>>({});
+  const [analyzingIds, setAnalyzingIds] = useState<Set<string>>(new Set());
+
   const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8000';
+
+  // Derived State for Current View
+  const currentResult = analysisResults[selectedUser];
+  const aiAnalysis = currentResult?.analysis || null;
+  const summaryCardData = currentResult?.summary || null;
+  const isAnalyzing = analyzingIds.has(selectedUser);
+
+  const [selectedCustomerIds, setSelectedCustomerIds] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     fetch(`${API_URL}/customers`)
@@ -33,10 +43,52 @@ export default function Home() {
       });
   }, []);
 
-  const runAdjudication = async (customerId: string) => {
-    setIsAnalyzing(true);
-    setAiAnalysis({ summary: "", confidence: 0, articles: [] }); // Reset
-    setSummaryCardData(null); // Reset summary card
+  const toggleCustomerSelection = (id: string) => {
+    const newSet = new Set(selectedCustomerIds);
+    if (newSet.has(id)) {
+      newSet.delete(id);
+    } else {
+      newSet.add(id);
+    }
+    setSelectedCustomerIds(newSet);
+  };
+
+  const selectAll = () => {
+    if (selectedCustomerIds.size === Object.keys(userData).length) {
+      setSelectedCustomerIds(new Set());
+    } else {
+      setSelectedCustomerIds(new Set(Object.keys(userData)));
+    }
+  };
+
+  // Auto-run analysis if not present
+  useEffect(() => {
+    if (selectedUser && !analysisResults[selectedUser] && !analyzingIds.has(selectedUser)) {
+      runAdjudication(selectedUser, false);
+    }
+  }, [selectedUser]);
+
+  const runAdjudication = async (customerId: string, force = true) => {
+    // If retrieving from cache and data exists, do nothing
+    if (!force && analysisResults[customerId]) return;
+
+    // Prevent double-run
+    if (analyzingIds.has(customerId)) return;
+
+    setAnalyzingIds(prev => {
+      const next = new Set(prev);
+      next.add(customerId);
+      return next;
+    });
+
+    // Reset specifically for this customer
+    setAnalysisResults(prev => ({
+      ...prev,
+      [customerId]: {
+        analysis: { summary: "", confidence: 0, articles: [] },
+        summary: null
+      }
+    }));
 
     try {
       const response = await fetch(`${API_URL}/adjudicate/${customerId}`);
@@ -56,11 +108,11 @@ export default function Home() {
         // Check for JSON block at the end
         const jsonMatch = accumulatedText.match(/```json\n([\s\S]*?)\n```/);
         let displayText = accumulatedText;
+        let newSummaryData = null;
 
         if (jsonMatch) {
           try {
-            const jsonData = JSON.parse(jsonMatch[1]);
-            setSummaryCardData(jsonData);
+            newSummaryData = JSON.parse(jsonMatch[1]);
             // Remove JSON from display text
             displayText = accumulatedText.replace(jsonMatch[0], "").trim();
           } catch (e) {
@@ -68,17 +120,48 @@ export default function Home() {
           }
         }
 
-        // Simple update for now - pushing raw text to summary
-        setAiAnalysis(prev => ({
-          summary: displayText,
-          confidence: prev?.confidence || 0,
-          articles: prev?.articles || []
-        }));
+        // Update results for this specific user
+        setAnalysisResults(prev => {
+          const current = prev[customerId] || { analysis: { summary: "", confidence: 0, articles: [] }, summary: null };
+          return {
+            ...prev,
+            [customerId]: {
+              analysis: {
+                summary: displayText,
+                confidence: current.analysis.confidence || 0,
+                articles: current.analysis.articles || []
+              },
+              summary: newSummaryData || current.summary
+            }
+          };
+        });
       }
     } catch (error) {
       console.error("Adjudication failed", error);
     } finally {
-      setIsAnalyzing(false);
+      setAnalyzingIds(prev => {
+        const next = new Set(prev);
+        next.delete(customerId);
+        return next;
+      });
+    }
+  };
+
+  const runBatchAdjudication = async () => {
+    if (selectedCustomerIds.size === 0) return;
+
+    // Convert set to array to iterate
+    const idsToRun = Array.from(selectedCustomerIds);
+
+    for (const id of idsToRun) {
+      // 1. Select the user in the UI so we see the progress
+      setSelectedUser(id);
+
+      // 2. Run the adjudication (and wait for it to finish)
+      await runAdjudication(id, true);
+
+      // Optional: Small delay between runs for better UX
+      await new Promise(resolve => setTimeout(resolve, 1000));
     }
   };
 
@@ -88,8 +171,13 @@ export default function Home() {
       selectedUser={selectedUser}
       setSelectedUser={setSelectedUser}
       aiAnalysis={aiAnalysis}
-      runAdjudication={() => runAdjudication(selectedUser)}
+      analysisResults={analysisResults}
+      runAdjudication={() => runAdjudication(selectedUser, true)}
       isAnalyzing={isAnalyzing}
+      selectedCustomerIds={selectedCustomerIds}
+      toggleCustomerSelection={toggleCustomerSelection}
+      selectAll={selectAll}
+      runBatch={runBatchAdjudication}
     >
       <EvidenceFeed
         articles={aiAnalysis?.articles || []}
