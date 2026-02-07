@@ -108,6 +108,7 @@ app = FastAPI(title="Compliance Adjudication API")
 origins = [
     "https://sentinel-gva5.onrender.com/*",
     "https://sentinel-gva5.onrender.com",
+    "https://sentinel-pi-steel.vercel.app"
 ]
 
 app.add_middleware(
