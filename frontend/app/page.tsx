@@ -101,7 +101,7 @@ export default function Home() {
   // Track case actions: "closed" or "escalated"
   const [caseActions, setCaseActions] = useState<Record<string, "closed" | "escalated">>({});
 
-  const API_URL = "http://127.0.0.1:8000";
+  const API_URL = "https://sentinel-gva5.onrender.com";
 
   const currentResult = analysisResults[selectedUser];
   const aiAnalysis = currentResult?.analysis || null;
