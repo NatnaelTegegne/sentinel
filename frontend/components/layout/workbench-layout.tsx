@@ -7,13 +7,10 @@ import { ClientHeader } from "./client-header";
 import { RightPanel } from "./right-panel";
 import { Customer, AIAnalysis } from "@/app/data";
 
-type RightPanelEvent = {
-  id: string;
-  kind: "run" | "tool";
-  title: string;
-  status: "running" | "info" | "complete";
-  ts: number;
-};
+type RightPanelEvent =
+  | { id: string; kind: "run"; title: string; status: "running" | "complete"; ts: number }
+  | { id: string; kind: "tool"; title: string; status: "info"; ts: number; rawToolName?: string }
+  | { id: string; kind: "text"; markdown: string; ts: number };
 
 interface WorkbenchLayoutProps {
   children?: ReactNode;
@@ -46,7 +43,6 @@ export function WorkbenchLayout({
 
   return (
     <div className="flex h-screen bg-slate-50 overflow-hidden font-sans text-slate-900 selection:bg-blue-100">
-      {/* Left Sidebar */}
       <Sidebar
         customers={Object.values(customers)}
         selectedUser={selectedUser}
@@ -55,7 +51,6 @@ export function WorkbenchLayout({
         analysisResults={analysisResults}
       />
 
-      {/* Main Stage */}
       <div className="flex-1 flex flex-col min-w-0 bg-white relative">
         <ClientHeader
           client={currentClient}
@@ -63,13 +58,11 @@ export function WorkbenchLayout({
           isAnalyzing={isAnalyzing}
         />
 
-        {/* Scrollable Content Area */}
         <main className="flex-1 overflow-y-auto scroll-smooth">
           {children}
         </main>
       </div>
 
-      {/* Right Panel */}
       <RightPanel
         analysis={aiAnalysis}
         runAdjudication={runAdjudication}

@@ -43,13 +43,10 @@ function parseSSE(buffer: string) {
   return { messages, remainder };
 }
 
-type RightPanelEvent = {
-  id: string;
-  kind: "run" | "tool";
-  title: string;
-  status: "running" | "info" | "complete";
-  ts: number;
-};
+type RightPanelEvent =
+  | { id: string; kind: "run"; title: string; status: "running" | "complete"; ts: number }
+  | { id: string; kind: "tool"; title: string; status: "info"; ts: number; rawToolName?: string }
+  | { id: string; kind: "text"; markdown: string; ts: number };
 
 type AnalysisResult = {
   analysis: AIAnalysis;
@@ -57,17 +54,55 @@ type AnalysisResult = {
   events: RightPanelEvent[];
 };
 
+function humanizeToolName(name: string) {
+  const cleaned = name
+    .replace(/^mcp[-_:]/i, "")
+    .replace(/[_-]+/g, " ")
+    .trim();
+
+  return cleaned
+    .split(" ")
+    .filter(Boolean)
+    .map(w => w.charAt(0).toUpperCase() + w.slice(1))
+    .join(" ");
+}
+
+function prettyToolTitle(raw: string) {
+  const n = (raw || "").toLowerCase();
+
+  // exact mappings (add more as needed)
+  const exactMap: Record<string, string> = {
+    "get_customer_profile": "Customer profile lookup",
+    "query_nessie": "Banking database lookup",
+    "search_news": "Adverse media search",
+
+    "mcp-exa_search": "Web search (Exa)",
+    "mcp-exa-search": "Web search (Exa)",
+    "mcp_exa_search": "Web search (Exa)",
+  };
+
+  if (exactMap[raw]) return exactMap[raw];
+
+  // fuzzy mappings
+  if (n.includes("exa")) return "Web search (Exa)";
+  if (n.includes("nessie")) return "Banking database lookup";
+  if (n.includes("customer") && n.includes("profile")) return "Customer profile lookup";
+  if (n.includes("adverse") || n.includes("news")) return "Adverse media search";
+  if (n.includes("search")) return "Search";
+  if (n.includes("db") || n.includes("database")) return "Database lookup";
+
+  return humanizeToolName(raw || "Tool");
+}
+
 export default function Home() {
   const [userData, setUserData] = useState<Record<string, ClientProfile>>({});
   const [selectedUser, setSelectedUser] = useState<string>("");
 
-  // Caching State
   const [analysisResults, setAnalysisResults] = useState<Record<string, AnalysisResult>>({});
   const [analyzingIds, setAnalyzingIds] = useState<Set<string>>(new Set());
 
-  const API_URL = 'http://127.0.0.1:8000'; // 'https://sentinel-gva5.onrender.com';
+  const API_URL = "http://127.0.0.1:8000";
 
-  // Derived State for Current View
   const currentResult = analysisResults[selectedUser];
   const aiAnalysis = currentResult?.analysis || null;
   const summaryCardData = currentResult?.summary || null;
@@ -76,24 +111,21 @@ export default function Home() {
 
   useEffect(() => {
     fetch(`${API_URL}/customers`)
-      .then(response => response.json())
+      .then(r => r.json())
       .then((data: ClientProfile[]) => {
         const usersById = data.reduce((acc: Record<string, ClientProfile>, user) => {
           acc[user._id] = {
             ...user,
-            address: typeof user.address === 'object' ? JSON.stringify(user.address) : user.address
+            address: typeof user.address === "object" ? JSON.stringify(user.address) : user.address
           };
           return acc;
         }, {});
 
-        if (data.length > 0) {
-          setSelectedUser(data[0]._id);
-        }
+        if (data.length > 0) setSelectedUser(data[0]._id);
         setUserData(usersById);
       });
   }, []);
 
-  // Auto-run analysis if not present
   useEffect(() => {
     if (selectedUser && !analysisResults[selectedUser] && !analyzingIds.has(selectedUser)) {
       runAdjudication(selectedUser, false);
@@ -107,7 +139,7 @@ export default function Home() {
 
     setAnalyzingIds(prev => new Set(prev).add(customerId));
 
-    // Reset
+    // Reset per-customer state
     setAnalysisResults(prev => ({
       ...prev,
       [customerId]: {
@@ -127,7 +159,85 @@ export default function Home() {
       const decoder = new TextDecoder();
 
       let buffer = "";
-      let accumulatedText = "";
+      let accumulatedText = ""; // full raw stream (includes json block when it arrives)
+
+      const pushEvent = (evt: RightPanelEvent) => {
+        setAnalysisResults(prev => {
+          const cur: AnalysisResult = prev[customerId] ?? {
+            analysis: { summary: "", confidence: 0, articles: [] },
+            summary: null,
+            events: []
+          };
+
+          // dedupe tools by id
+          if (evt.kind === "tool" && cur.events.some(e => e.id === evt.id)) return prev;
+
+          return {
+            ...prev,
+            [customerId]: {
+              ...cur,
+              events: [...cur.events, evt]
+            }
+          };
+        });
+      };
+
+      const upsertTextCardAndSummary = (delta: string, ts: number) => {
+        if (!delta) return;
+
+        accumulatedText += delta;
+
+        // Extract final JSON summary block (your old logic)
+        const jsonMatch = accumulatedText.match(/```json\n([\s\S]*?)\n```/);
+        let displayText = accumulatedText;
+        let newSummaryData: SummaryCardData | null = null;
+
+        if (jsonMatch) {
+          try {
+            newSummaryData = JSON.parse(jsonMatch[1]);
+            displayText = accumulatedText.replace(jsonMatch[0], "").trim();
+          } catch {
+            // incomplete JSON; ignore until complete
+          }
+        }
+
+        setAnalysisResults(prev => {
+          const cur: AnalysisResult = prev[customerId] ?? {
+            analysis: { summary: "", confidence: 0, articles: [] },
+            summary: null,
+            events: []
+          };
+
+          const events = [...cur.events];
+          const last = events[events.length - 1];
+
+          if (last && last.kind === "text") {
+            // append to the current text card (but use displayText delta semantics)
+            // We only have delta; easiest is to append delta, BUT we must strip JSON from UI if it appears.
+            // When JSON appears, displayText may remove the block, so we overwrite the full text card with displayText.
+            const updated = { ...last, markdown: displayText };
+            events[events.length - 1] = updated;
+          } else {
+            // start a new text card
+            events.push({
+              id: `text-${Date.now()}-${Math.random().toString(16).slice(2)}`,
+              kind: "text",
+              markdown: displayText,
+              ts
+            });
+          }
+
+          return {
+            ...prev,
+            [customerId]: {
+              ...cur,
+              events,
+              analysis: { ...cur.analysis, summary: displayText },
+              summary: newSummaryData || cur.summary
+            }
+          };
+        });
+      };
 
       while (true) {
         const { value, done } = await reader.read();
@@ -140,135 +250,42 @@ export default function Home() {
 
         for (const msg of parsed.messages) {
           if (msg.event === "token") {
-            accumulatedText += msg.data?.delta ?? "";
-
-            // Check for JSON block at the end (Restored Logic)
-            const jsonMatch = accumulatedText.match(/```json\n([\s\S]*?)\n```/);
-            let displayText = accumulatedText;
-            let newSummaryData = null;
-
-            if (jsonMatch) {
-              try {
-                newSummaryData = JSON.parse(jsonMatch[1]);
-                // Remove JSON from display text so it doesn't clutter the UI
-                displayText = accumulatedText.replace(jsonMatch[0], "").trim();
-              } catch (e) {
-                // Incomplete JSON, ignore until complete
-              }
-            }
-
-            setAnalysisResults(prev => {
-              const cur: AnalysisResult = prev[customerId] ?? {
-                analysis: { summary: "", confidence: 0, articles: [] },
-                summary: null,
-                events: []
-              };
-
-              return {
-                ...prev,
-                [customerId]: {
-                  ...cur,
-                  analysis: { ...cur.analysis, summary: displayText },
-                  // Update summary if we successfully parsed it
-                  summary: newSummaryData || cur.summary
-                }
-              };
-            });
+            upsertTextCardAndSummary(msg.data?.delta ?? "", Date.now());
           }
 
-          if (msg.event === "run_started") {
-            setAnalysisResults(prev => {
-              const cur: AnalysisResult = prev[customerId] ?? {
-                analysis: { summary: "", confidence: 0, articles: [] },
-                summary: null,
-                events: []
-              };
-
-              return {
-                ...prev,
-                [customerId]: {
-                  ...cur,
-                  events: [
-                    ...cur.events,
-                    {
-                      id: `run-${Date.now()}`,
-                      kind: "run",
-                      title: "Agent started",
-                      status: "running",
-                      ts: msg.data?.ts ?? Date.now()
-                    }
-                  ]
-                }
-              };
-            });
-          }
+          // if (msg.event === "run_started") {
+          //   pushEvent({
+          //     id: `run-${Date.now()}`,
+          //     kind: "run",
+          //     title: "Agent started",
+          //     status: "running",
+          //     ts: msg.data?.ts ?? Date.now()
+          //   });
+          // }
 
           if (msg.event === "tool_call_started") {
-            const tool = msg.data?.tool ?? "Tool";
-            const id = msg.data?.id ?? `${tool}-${Date.now()}`;
+            const rawTool = msg.data?.tool ?? "Tool";
+            const toolId = msg.data?.id ?? `${rawTool}-${Date.now()}`;
 
-            setAnalysisResults(prev => {
-              const cur: AnalysisResult = prev[customerId] ?? {
-                analysis: { summary: "", confidence: 0, articles: [] },
-                summary: null,
-                events: []
-              };
-
-              // dedupe by id
-              if (cur.events.some(e => e.id === id)) return prev;
-
-              // Optional: prettier labels
-              const prettyToolLabel: Record<string, string> = {
-                search_news: "Adverse media search",
-                get_customer_profile: "Database lookup",
-                query_nessie: "Banking data lookup",
-              };
-
-              const title = prettyToolLabel[tool] ? `Calling ${prettyToolLabel[tool]}` : `Calling ${tool}`;
-
-              return {
-                ...prev,
-                [customerId]: {
-                  ...cur,
-                  events: [
-                    ...cur.events,
-                    {
-                      id,
-                      kind: "tool",
-                      title,
-                      status: "info",
-                      ts: msg.data?.ts ?? Date.now()
-                    }
-                  ]
-                }
-              };
+            pushEvent({
+              id: toolId,
+              kind: "tool",
+              title: `${prettyToolTitle(rawTool)}`,
+              status: "info",
+              ts: Date.now(),
+              rawToolName: rawTool
             });
           }
 
-          if (msg.event === "run_finished") {
-            setAnalysisResults(prev => {
-              const cur = prev[customerId];
-              if (!cur) return prev;
-
-              const events = [...cur.events];
-              for (let i = events.length - 1; i >= 0; i--) {
-                if (events[i].kind === "run" && events[i].status === "running") {
-                  events[i] = { ...events[i], status: "complete", title: "Agent finished" };
-                  break;
-                }
-              }
-
-              return {
-                ...prev,
-                [customerId]: { ...cur, events }
-              };
-            });
-          }
-
-          // Forwarded Dedalus events (optional logging)
-          if (msg.event === "event") {
-            console.log("dedalus_event_raw", msg.data?.raw);
-          }
+          // if (msg.event === "run_finished") {
+          //   pushEvent({
+          //     id: `run-finished-${Date.now()}`,
+          //     kind: "run",
+          //     title: "Agent finished",
+          //     status: "complete",
+          //     ts: msg.data?.ts ?? Date.now()
+          //   });
+          // }
         }
       }
     } catch (err) {
